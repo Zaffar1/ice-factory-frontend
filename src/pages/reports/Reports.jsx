@@ -300,7 +300,7 @@ const Reports = () => {
 
       case 'udhar':
         if (isUdharLoading) return <div className="flex justify-center py-6"><Loader2 className="animate-spin text-primary" /></div>;
-        const totalUdhar = udharData.reduce((s, u) => s + u.balance, 0);
+        const totalUdhar = udharData.reduce((s, u) => s + (parseFloat(u.balance) || 0), 0);
 
         return (
           <div className="space-y-4">

@@ -44,11 +44,11 @@ const Payments = () => {
   const pagination = paymentsData?.pagination || { page: 1, pages: 1, total: 0 };
   const customersList = customersData || [];
 
-  // Calculate metrics
-  const totalReceived = paymentsList.reduce((sum, p) => sum + (p.amount || 0), 0);
+  // Calculate metrics — use parseFloat because Sequelize returns DECIMAL as strings
+  const totalReceived = paymentsList.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
   const todayStr = new Date().toISOString().split('T')[0];
   const todayPayments = paymentsList.filter(p => p.date?.split('T')[0] === todayStr);
-  const todayTotal = todayPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const todayTotal = todayPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
 
   // Create Payment Mutation
   const createMutation = useMutation({
@@ -222,7 +222,7 @@ const Payments = () => {
                         </td>
                         <td className="px-4 py-4">
                           <span className="font-bold text-green-600 flex items-center gap-1">
-                            + Rs {Number(payment.amount).toLocaleString()}
+                            + Rs {parseFloat(payment.amount || 0).toLocaleString()}
                           </span>
                         </td>
                         <td className="px-4 py-4">

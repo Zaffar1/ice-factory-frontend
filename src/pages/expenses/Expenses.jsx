@@ -35,14 +35,14 @@ const Expenses = () => {
   const expensesList = expData?.data || [];
   const pagination = expData?.pagination || { page: 1, pages: 1, total: 0 };
 
-  // Calculate stats
-  const totalExpenses = expensesList.reduce((sum, e) => sum + (e.amount || 0), 0);
+  // Calculate stats – parse amount as float because Sequelize returns DECIMAL as strings
+  const totalExpenses = expensesList.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
 
-  const categories = ['Electricity', 'Diesel/Fuel', 'Salaries', 'Maintenance', 'Office & Others'];
+  const categories = ['Electricity', 'Labor', 'Fuel', 'Maintenance', 'Rent', 'Transport', 'Raw Material', 'Other'];
   
   // Category-based amounts
   const categoryStats = categories.map(cat => {
-    const total = expensesList.filter(e => e.category === cat).reduce((sum, e) => sum + (e.amount || 0), 0);
+    const total = expensesList.filter(e => e.category === cat).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
     const percentage = totalExpenses > 0 ? Math.round((total / totalExpenses) * 100) : 0;
     return { name: cat, total, percentage };
   });
@@ -58,9 +58,7 @@ const Expenses = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      setIsModalOpen(false);
-      reset();
-      setEditingExpense(null);
+      handleCloseModal();
     }
   });
 
@@ -79,6 +77,18 @@ const Expenses = () => {
       ...data,
       amount: Number(data.amount)
     });
+  };
+
+  const handleCloseModal = () => {
+    // Reset form to defaults before closing
+    reset({
+      date: '',
+      category: '',
+      amount: '',
+      description: ''
+    });
+    setEditingExpense(null);
+    setIsModalOpen(false);
   };
 
   const handleAddNew = () => {
@@ -292,12 +302,12 @@ const Expenses = () => {
       </div>
 
       {/* Add / Edit Expense Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingExpense ? "Edit Expense Entry" : "Record New Expense"}>
+      <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingExpense ? "Edit Expense Entry" : "Record New Expense"}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-              <input type="date" {...register('date', { required: true })} className="input-field" defaultValue={new Date().toISOString().split('T')[0]} />
+              <input type="date" {...register('date', { required: true })} className="input-field" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>

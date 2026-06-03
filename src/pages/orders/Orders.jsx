@@ -15,8 +15,16 @@ const Orders = () => {
 
   const queryClient = useQueryClient();
   const { register, handleSubmit, reset, setValue, formState: { errors }, watch } = useForm({
-    defaultValues: { type: 'Block Ice', qty: 1, rate: 500 }
-  });
+  defaultValues: {
+    customer: '',
+    type: 'Block Ice',
+    qty: 1,
+    rate: 500,
+    payment: 'Paid',
+    status: 'Pending',
+    date: ''
+  }
+});
 
   const qty = watch('qty') || 0;
   const rate = watch('rate') || 0;
@@ -39,12 +47,13 @@ const Orders = () => {
   });
 
   // Fetch Customers for Select Dropdown
-  const { data: customersData } = useQuery({
-    queryKey: ['customers-list'],
+  const { data: customersData, isLoading: isCustomersLoading } = useQuery({
+    queryKey: ['customers'], // Match the invalidation key
     queryFn: async () => {
       const response = await api.get('/customers', { params: { limit: 100 } });
       return response.data?.data || [];
-    }
+    },
+    staleTime: 5 * 60 * 1000
   });
 
   const ordersList = ordersData?.data || [];
@@ -62,10 +71,8 @@ const Orders = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
-      queryClient.invalidateQueries({ queryKey: ['customers'] }); // Customer balance might change
-      setIsModalOpen(false);
-      reset();
-      setEditingOrder(null);
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      handleCloseModal();
     }
   });
 
@@ -98,10 +105,27 @@ const Orders = () => {
     });
   };
 
-  const handleAddNew = () => {
-    setEditingOrder(null);
+  const handleCloseModal = () => {
+    // Reset form to defaults first so that values are cleared even if modal unmounts
     reset({
-      customer: customersList[0]?.id || customersList[0]?._id || '',
+      customer: '',
+      type: 'Block Ice',
+      qty: 1,
+      rate: 500,
+      payment: 'Paid',
+      status: 'Pending',
+      date: ''
+    });
+    setEditingOrder(null);
+    setIsModalOpen(false);
+  };
+
+  const handleAddNew = () => {
+    // Ensure customers are loaded; if not, we still open with empty customer
+    setEditingOrder(null);
+    const firstCustomerId = customersList.length > 0 ? (customersList[0].id || customersList[0]._id) : '';
+    reset({
+      customer: firstCustomerId !== '' ? String(firstCustomerId) : '',
       type: 'Block Ice',
       qty: 1,
       rate: 500,
@@ -113,14 +137,26 @@ const Orders = () => {
   };
 
   const handleEdit = (order) => {
+    if (isCustomersLoading) return;
     setEditingOrder(order);
-    setValue('customer', order.customer?.id || order.customer?._id || order.customer || '');
-    setValue('type', order.type);
-    setValue('qty', order.qty);
-    setValue('rate', order.rate);
-    setValue('payment', order.payment);
-    setValue('status', order.status);
-    setValue('date', order.date ? new Date(order.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+    // Sequelize stores the FK as `customerId` (integer); option values are strings
+    // We must convert to string so the <select> can match the correct <option>
+    const rawId =
+      order.customerId ||
+      order.customerAssociation?.id ||
+      order.customer?.id ||
+      order.customer ||
+      '';
+    const customerId = rawId !== '' ? String(rawId) : '';
+    reset({
+      customer: customerId,
+      type: order.type,
+      qty: order.qty,
+      rate: order.rate,
+      payment: order.payment,
+      status: order.status,
+      date: order.date ? new Date(order.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    });
     setIsModalOpen(true);
   };
 
@@ -264,7 +300,7 @@ const Orders = () => {
                           {order.qty} x {order.type}
                         </td>
                         <td className="px-4 py-4 font-bold text-dark">
-                          Rs {Number(order.amount).toLocaleString()}
+                          Rs {parseFloat(order.amount || 0).toLocaleString()}
                         </td>
                         <td className="px-4 py-4">
                           <span className={`font-medium ${getPaymentColor(order.payment)}`}>
@@ -335,20 +371,31 @@ const Orders = () => {
         )}
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingOrder ? "Edit Order" : "Create New Order"}>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
-              <select {...register('customer', { required: true })} className="input-field">
-                {customersList.map((c) => (
-                  <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
+      <Modal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        title={editingOrder ? "Edit Order" : "Create New Order"}
+      >
+        {isCustomersLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="animate-spin text-primary" size={32} />
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
+                <select {...register('customer', { required: true })} className="input-field">
+                  <option value="">Select Customer</option>
+                  {customersList.map((c) => {
+                    const val = String(c.id || c._id);
+                    return <option key={val} value={val}>{c.name}</option>;
+                  })}
+                </select>
+              </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-              <input type="date" {...register('date')} className="input-field" defaultValue={new Date().toISOString().split('T')[0]} />
+                              <input type="date" {...register('date')} className="input-field" />
             </div>
           </div>
 
@@ -398,13 +445,14 @@ const Orders = () => {
           </div>
 
           <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 mt-6">
-            <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary">Cancel</button>
-            <button type="submit" disabled={saveMutation.isPending} className="btn-primary flex items-center gap-2">
-              {saveMutation.isPending && <Loader2 className="animate-spin" size={16} />}
-              <span>{editingOrder ? "Save Changes" : "Create Order"}</span>
-            </button>
-          </div>
-        </form>
+              <button type="button" onClick={handleCloseModal} className="btn-secondary">Cancel</button>
+              <button type="submit" disabled={saveMutation.isPending} className="btn-primary flex items-center gap-2">
+                {saveMutation.isPending && <Loader2 className="animate-spin" size={16} />}
+                <span>{editingOrder ? "Save Changes" : "Create Order"}</span>
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
     </motion.div>
   );

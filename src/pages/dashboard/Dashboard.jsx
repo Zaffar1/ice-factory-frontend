@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, DollarSign, Package, Users, TrendingUp, TrendingDown, Factory, Loader2 } from 'lucide-react';
+import { ShoppingCart, DollarSign, Package, Users, TrendingUp, TrendingDown, Factory, Loader2, Wallet } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   BarChart, Bar, Legend
@@ -56,12 +56,14 @@ const Dashboard = () => {
   }
 
   // Map stats data
-  const { totalRevenue, totalOrders, dailyProduction, pendingPayments, recentOrders = [], lowStockAlerts = [] } = statsData || {};
+  const { totalRevenue, totalOrders, dailyProduction, pendingPayments, totalExpenses, totalProfit, recentOrders = [], lowStockAlerts = [] } = statsData || {};
 
   const statCards = [
     { title: 'Total Revenue', value: `Rs ${Number(totalRevenue || 0).toLocaleString()}`, icon: DollarSign, trend: '+12%', isUp: true, color: 'bg-green-500' },
+    { title: 'Total Expenses', value: `Rs ${Number(totalExpenses || 0).toLocaleString()}`, icon: Wallet, trend: '+5%', isUp: false, color: 'bg-orange-500' },
+    { title: 'Net Profit', value: `Rs ${Number(totalProfit || 0).toLocaleString()}`, icon: TrendingUp, trend: '+15%', isUp: true, color: 'bg-blue-500' },
     { title: 'Total Orders', value: totalOrders || 0, icon: ShoppingCart, trend: '+8%', isUp: true, color: 'bg-primary' },
-    { title: 'Daily Production', value: `${dailyProduction || 0} Units`, icon: Factory, trend: 'Stable', isUp: true, color: 'bg-orange-500' },
+    { title: 'Daily Production', value: `${dailyProduction || 0} Units`, icon: Factory, trend: 'Stable', isUp: true, color: 'bg-purple-500' },
     { title: 'Pending Payments', value: `Rs ${Number(pendingPayments || 0).toLocaleString()}`, icon: TrendingDown, trend: '+4%', isUp: false, color: 'bg-red-500' },
   ];
 
@@ -106,7 +108,7 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {statCards.map((stat, index) => (
           <motion.div 
             key={stat.title}
